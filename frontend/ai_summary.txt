@@ -1,0 +1,1 @@
+The fee structure shows IT branch costs ₹132,331, CSE ₹500,000, ECE ₹200,000, and CSM ₹200,000.  Student data includes Vamsi (IT, 8.53 GPA, 78% attendance), Anirudh (IT, 8.2 GPA, 80% attendance), Krishna (ECE, 8.4 GPA, 75% attendance), and Manish (CSM, 6.7 GPA, 32% attendance).

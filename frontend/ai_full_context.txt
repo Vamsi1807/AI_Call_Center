@@ -1,0 +1,13 @@
+📁 File: fee structure.xlsx
+📄 Sheet: Branches
+Branch: IT | fee: 132331
+Branch: CSE | fee: 500000
+Branch: ECE | fee: 200000
+Branch: CSM | fee: 200000
+
+📄 Sheet: Students
+Roll number: 22bq1a1249 | name: vamsi | branch: it | gpa: 8.53 | attendance: 78
+Roll number: 22bq1a04c4 | name: anirudh | branch: it | gpa: 8.2 | attendance: 80
+Roll number: 22bq1a1233 | name: krishna | branch: ece | gpa: 8.4 | attendance: 75
+Roll number: 22bq1a42g2 | name: manish | branch: csm | gpa: 6.7 | attendance: 32
+

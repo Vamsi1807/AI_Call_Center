@@ -1,0 +1,180 @@
+import streamlit.components.v1 as components
+
+if st.session_state.call_active:
+    components.html("""
+    <div style="background:#f5f5f5; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <div id="speech-container-1" style="text-align:center;">
+            <button id="start-speech-1" onclick="startSpeech_1()" style="
+                background: linear-gradient(90deg, #4CAF50, #8BC34A);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 25px;
+                font-weight: 600;
+                cursor: pointer;
+                margin: 10px;
+                font-size: 16px;
+            ">🎙️ Start Speaking</button>
+            <button id="stop-speech-1" onclick="stopSpeech_1()" style="
+                background: #F44336;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 25px;
+                font-weight: 600;
+                cursor: pointer;
+                margin: 10px;
+                font-size: 16px;
+                display: none;
+            ">⏹️ Stop Recording</button>
+            <div id="speech-status-1" style="
+                margin: 15px;
+                padding: 10px;
+                background: #ffffff;
+                border-radius: 5px;
+                color: #333;
+                font-size: 14px;
+                min-height: 40px;
+            ">🔴 Not Recording - Click "Start Speaking" to begin</div>
+        </div>
+        <script>
+        // ... (your JS code here, same as before) ...
+            let recognition_1 = null;
+let isRecording_1 = false;
+let currentTranscript_1 = '';
+let targetTextarea_1 = null;
+
+function initSpeechRecognition_1() {
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition_1 = new SpeechRecognition();
+        recognition_1.continuous = true;
+        recognition_1.interimResults = true;
+        recognition_1.lang = 'en-US';
+        recognition_1.maxAlternatives = 1;
+
+        recognition_1.onstart = function() {
+            document.getElementById('speech-status-1').innerHTML = '🎤 <strong>Listening...</strong> Speak now!';
+            document.getElementById('start-speech-1').style.display = 'none';
+            document.getElementById('stop-speech-1').style.display = 'inline-block';
+            isRecording_1 = true;
+            currentTranscript_1 = '';
+            findTargetTextarea_1();
+        };
+
+        recognition_1.onresult = function(event) {
+            let interimTranscript = '';
+            let finalTranscript = '';
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript + ' ';
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            currentTranscript_1 = finalTranscript + interimTranscript;
+            updateTextareaLive_1(currentTranscript_1);
+            const statusText = interimTranscript ?
+                `🎤 <strong>Listening:</strong> "${interimTranscript.substring(0, 50)}${interimTranscript.length > 50 ? '...' : ''}"` :
+                '🎤 <strong>Listening...</strong> Speak now!';
+            document.getElementById('speech-status-1').innerHTML = statusText;
+        };
+
+        recognition_1.onerror = function(event) {
+            document.getElementById('speech-status-1').innerHTML = '❌ <strong>Error:</strong> ' + event.error;
+            resetButtons_1();
+        };
+
+        recognition_1.onend = function() {
+            if (isRecording_1) {
+                setTimeout(() => recognition_1.start(), 100);
+            } else {
+                document.getElementById('speech-status-1').innerHTML = '✅ <strong>Recording complete!</strong> Text added below';
+                resetButtons_1();
+                if (currentTranscript_1.trim()) {
+                    updateTextareaLive_1(currentTranscript_1, true);
+                }
+            }
+        };
+    } else {
+        document.getElementById('speech-status-1').innerHTML = '❌ <strong>Speech recognition not supported</strong> in this browser';
+    }
+}
+
+function findTargetTextarea_1() {
+    setTimeout(function() {
+        const textareas = document.querySelectorAll('textarea');
+        for (let textarea of textareas) {
+            if (textarea.placeholder && textarea.placeholder.toLowerCase().includes('speak or type')) {
+                targetTextarea_1 = textarea;
+                return;
+            }
+        }
+        let largestArea = 0;
+        for (let textarea of textareas) {
+            const rect = textarea.getBoundingClientRect();
+            const area = rect.width * rect.height;
+            if (area > largestArea &&
+                window.getComputedStyle(textarea).display !== 'none' &&
+                !textarea.disabled &&
+                !textarea.readOnly) {
+                largestArea = area;
+                targetTextarea_1 = textarea;
+            }
+        }
+    }, 300);
+}
+
+function updateTextareaLive_1(text, isFinal=false) {
+    if (targetTextarea_1 && text.trim()) {
+        targetTextarea_1.value = text;
+        const events = ['input', 'change', 'keyup', 'keydown', 'blur'];
+        events.forEach(eventType => {
+            const event = new Event(eventType, { bubbles: true });
+            targetTextarea_1.dispatchEvent(event);
+        });
+        if (targetTextarea_1._valueTracker) {
+            targetTextarea_1._valueTracker.setValue(text);
+        }
+        if (isFinal) {
+            targetTextarea_1.focus();
+            setTimeout(() => targetTextarea_1.blur(), 100);
+        }
+    }
+}
+
+function startSpeech_1() {
+    if (!recognition_1) {
+        initSpeechRecognition_1();
+    }
+    try {
+        recognition_1.start();
+    } catch (e) {
+        document.getElementById('speech-status-1').innerHTML = '❌ <strong>Error:</strong> ' + e.message;
+    }
+}
+
+function stopSpeech_1() {
+    isRecording_1 = false;
+    if (recognition_1) {
+        recognition_1.stop();
+    }
+}
+
+function resetButtons_1() {
+    document.getElementById('start-speech-1').style.display = 'inline-block';
+    document.getElementById('stop-speech-1').style.display = 'none';
+}
+
+// On load, find textarea
+if (document.readyState === 'complete') {
+    findTargetTextarea_1();
+} else {
+    document.addEventListener('DOMContentLoaded', () => {
+        findTargetTextarea_1();
+    });
+}
+        </script>
+    </div>
+    """, height=220)

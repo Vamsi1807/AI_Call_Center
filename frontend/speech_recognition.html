@@ -1,0 +1,337 @@
+<div id="speech-container-1" style="display:none;">
+    <div id="speech-status-1" style="
+        margin: 5px 0;
+        padding: 8px 12px;
+        background: #f5f5f5;
+        border-radius: 5px;
+        font-size: 13px;
+        color: #555;
+        min-height: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    ">
+        Loading speech component...
+    </div>
+</div>
+
+<script>
+    console.log("speech_recognition.html loaded");
+
+    let recognition_1 = null;
+    let isRecording_1 = false;
+    let currentTranscript_1 = '';
+    let targetTextarea_1 = null;
+    let lastFinalTranscript_1 = ''; // To prevent re-appending the same final text
+
+    function updateStatus(message, type = 'info') {
+        const statusDiv = document.getElementById('speech-status-1');
+        if (statusDiv) {
+            statusDiv.innerHTML = message;
+            // You can add more detailed styling by setting class names if you wish
+            // e.g., statusDiv.className = `status-${type}`;
+        }
+    }
+
+    function initSpeechRecognition_1() {
+        console.log("Initializing speech recognition");
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            updateStatus('❌ Speech recognition not supported in this browser.', 'error');
+            console.error("SpeechRecognition API not supported");
+            return false;
+        }
+
+        recognition_1 = new SpeechRecognition();
+        recognition_1.continuous = true;
+        recognition_1.interimResults = true;
+        recognition_1.lang = 'en-US'; // Default language
+
+        recognition_1.onstart = function() {
+            console.log("Speech recognition started");
+            updateStatus('🎤 Listening... Speak now! Text will appear in your input box.');
+            isRecording_1 = true;
+            currentTranscript_1 = ''; // Clear transcript on start of a new session
+            lastFinalTranscript_1 = ''; // Clear last final transcript
+            findTargetTextarea_1(); // Re-find textarea just in case
+        };
+
+        recognition_1.onresult = function(event) {
+            let interimTranscript = '';
+            let finalTranscript = '';
+            
+            for (let i = 0; i < event.results.length; i++) {
+                const transcript = event.results[i][0].transcript;
+                if (event.results[i].isFinal) {
+                    finalTranscript += transcript + ' ';
+                } else {
+                    interimTranscript += transcript;
+                }
+            }
+            
+            const completeTranscript = (finalTranscript + interimTranscript).trim();
+            currentTranscript_1 = completeTranscript;
+            updateTextareaLive_1(currentTranscript_1);
+
+            const statusText = interimTranscript ? 
+                `🎤 Listening... Current: "${interimTranscript.substring(0, Math.min(interimTranscript.length, 50))}..."` :
+                '🎤 Listening... Speak now!';
+            updateStatus(statusText, 'recording');
+            console.log("Transcript:", currentTranscript_1);
+        };
+
+        recognition_1.onerror = function(event) {
+            console.error("Speech recognition error:", event.error);
+            updateStatus('❌ Error: ' + event.error + ' - Please refresh or restart call.', 'error');
+            isRecording_1 = false;
+        };
+
+        recognition_1.onend = function() {
+            console.log("Speech recognition ended");
+            const callActiveInput = document.getElementById('call-active-state');
+            const shouldBeActive = callActiveInput?.value === 'true';
+            
+            // If it ended but should still be active, restart
+            if (shouldBeActive && isRecording_1) {
+                console.log("Call active detected, restarting speech recognition.");
+                // Ensure the final part of the current transcript is processed before restarting
+                if (currentTranscript_1.trim() && currentTranscript_1.trim() !== lastFinalTranscript_1) {
+                     updateTextareaLive_1(currentTranscript_1, true); // Mark as final
+                     lastFinalTranscript_1 = currentTranscript_1.trim();
+                }
+
+                setTimeout(() => {
+                    try {
+                        // Double check the state before trying to restart
+                        if (shouldBeActive && document.getElementById('call-active-state')?.value === 'true') {
+                            recognition_1.start();
+                        } else {
+                             updateStatus('✅ Recording stopped. Call ended.', 'info');
+                             // If it was supposed to stop, ensure final text is committed
+                             if (currentTranscript_1.trim() && currentTranscript_1.trim() !== lastFinalTranscript_1) {
+                                updateTextareaLive_1(currentTranscript_1, true);
+                             }
+                        }
+                    } catch (e) {
+                        console.error("Failed to restart speech recognition:", e);
+                        updateStatus('❌ Error restarting mic: ' + e.message, 'error');
+                    }
+                }, 500); // Small delay before restarting
+            } else {
+                updateStatus('✅ Recording stopped. Text sent to input.', 'info');
+                isRecording_1 = false;
+                // Send the final transcript when recording truly stops (e.g., call ended)
+                if (currentTranscript_1.trim() && currentTranscript_1.trim() !== lastFinalTranscript_1) {
+                    updateTextareaLive_1(currentTranscript_1, true);
+                }
+            }
+        };
+        return true;
+    }
+
+    // This function tries to find the main text area in Streamlit to write into
+    function findTargetTextarea_1() {
+        console.log("Finding target textarea");
+        // Look for Streamlit's common textarea selectors
+        const streamlitTextareas = document.querySelectorAll('[data-testid="stTextArea"] textarea, [data-baseweb="textarea"] textarea, .stTextArea textarea');
+        let bestTextarea = null;
+        let highestScore = 0;
+
+        for (let textarea of streamlitTextareas) {
+            const rect = textarea.getBoundingClientRect();
+            const area = rect.width * rect.height;
+            const isVisible = area > 0 && 
+                             window.getComputedStyle(textarea).display !== 'none' &&
+                             window.getComputedStyle(textarea).visibility !== 'hidden';
+
+            if (isVisible && !textarea.disabled && !textarea.readOnly) {
+                let score = 0;
+                const placeholder = textarea.placeholder.toLowerCase();
+
+                // Prioritize the placeholder text Streamlit uses for chat inputs
+                if (placeholder.includes('speak or type') || placeholder.includes('your question')) {
+                    score += 100;
+                }
+                if (area > 10000) { // Large text areas are likely the main input
+                    score += 20;
+                }
+                
+                if (score > highestScore) {
+                    highestScore = score;
+                    bestTextarea = textarea;
+                }
+            }
+        }
+
+        // Fallback: if no specific placeholder, pick the largest visible, editable textarea
+        if (!bestTextarea) {
+            let largestArea = 0;
+            for (let textarea of streamlitTextareas) {
+                const rect = textarea.getBoundingClientRect();
+                const area = rect.width * rect.height;
+                const isVisible = area > 0 && 
+                                 window.getComputedStyle(textarea).display !== 'none' &&
+                                 window.getComputedStyle(textarea).visibility !== 'hidden';
+
+                if (isVisible && !textarea.disabled && !textarea.readOnly && area > largestArea) {
+                    largestArea = area;
+                    bestTextarea = textarea;
+                }
+            }
+        }
+
+        if (bestTextarea) {
+            targetTextarea_1 = bestTextarea;
+            console.log('Target textarea found:', targetTextarea_1.placeholder || targetTextarea_1.id || 'N/A');
+        } else {
+            console.log('No suitable textarea found');
+            updateStatus('❌ Error: No editable text area found to insert speech.', 'error');
+        }
+    }
+
+    // Updates the found textarea with the transcribed text
+    function updateTextareaLive_1(text, isFinal = false) {
+        if (targetTextarea_1 && text.trim()) {
+            try {
+                const currentValue = targetTextarea_1.value.trim();
+                let newValue = text.trim();
+
+                // Logic to update the textarea without overwriting user-typed content
+                // and to handle continuous interim/final updates
+                if (currentValue && text.startsWith(currentValue) && text !== currentValue) {
+                    newValue = text;
+                } else if (!currentValue) {
+                    newValue = text; // If textarea is empty, just set the text
+                } else if (isFinal && text !== currentValue && !currentValue.includes(text)) {
+                    // If it's a final update and new text is substantially different, append it
+                    if (newValue.startsWith(lastFinalTranscript_1) && lastFinalTranscript_1) {
+                         // New text continues from last final, no action needed for appending, just updating
+                    } else if (!currentValue.includes(newValue)) {
+                         newValue = currentValue + " " + newValue; // Append new final text
+                    } else {
+                         newValue = currentValue; // Don't change if current value already has it
+                    }
+                } else {
+                    newValue = currentValue; // Don't update if nothing significant changed
+                }
+
+                if (targetTextarea_1.value.trim() !== newValue.trim()) { // Only update if value actually changes
+                    targetTextarea_1.value = newValue.trim();
+                    // Dispatch events to tell Streamlit the value has changed
+                    const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+                    const changeEvent = new Event('change', { bubbles: true, cancelable: true });
+                    targetTextarea_1.dispatchEvent(inputEvent);
+                    targetTextarea_1.dispatchEvent(changeEvent);
+
+                    // For final results, also trigger blur/keyup to ensure Streamlit registers the change
+                    if (isFinal) {
+                        targetTextarea_1.focus();
+                        setTimeout(() => {
+                            const blurEvent = new Event('blur', { bubbles: true, cancelable: true });
+                            targetTextarea_1.dispatchEvent(blurEvent);
+                            const keyupEvent = new Event('keyup', { bubbles: true, cancelable: true });
+                            targetTextarea_1.dispatchEvent(keyupEvent);
+                            console.log('Dispatched events for final update.');
+                        }, 50); // Small delay
+                    }
+                    console.log('Textarea updated with:', newValue.substring(0, Math.min(newValue.length, 50)) + '...');
+                }
+
+            } catch (error) {
+                console.error('Error updating textarea:', error);
+                updateStatus('❌ Error updating textarea: ' + error.message, 'error');
+            }
+        }
+    }
+
+    // Function to check the call_active state and start/stop recognition
+    function checkCallActiveAndStart() {
+        const callActiveInput = document.getElementById('call-active-state');
+        const callActive = callActiveInput?.value === 'true';
+        // Display speech container when component is active
+        const speechContainer = document.getElementById('speech-container-1');
+        if (speechContainer) {
+            speechContainer.style.display = callActive ? 'block' : 'none';
+        }
+
+        console.log('Checking call state: callActive=', callActive, 'isRecording=', isRecording_1);
+        
+        if (callActive && !isRecording_1) {
+            console.log("Call active detected, attempting to start speech recognition");
+            if (!recognition_1) {
+                if (!initSpeechRecognition_1()) return;
+            }
+            try {
+                recognition_1.start();
+            } catch (error) {
+                console.error("Failed to start speech recognition:", error);
+                updateStatus('❌ Error starting mic: ' + error.message, 'error');
+            }
+        } else if (!callActive && isRecording_1 && recognition_1) {
+            console.log("Call ended, attempting to stop speech recognition");
+            isRecording_1 = false; // Set to false immediately to prevent restart loop
+            try {
+                recognition_1.stop();
+            } catch (error) {
+                console.error("Failed to stop speech recognition:", error);
+                updateStatus('❌ Error stopping mic: ' + error.message, 'error');
+            }
+        } else if (!callActive && !isRecording_1) {
+             updateStatus('🛑 Call not active. Press Start Call to begin.', 'info');
+             currentTranscript_1 = ''; // Clear transcript when call is explicitly stopped
+             lastFinalTranscript_1 = '';
+        }
+    }
+
+    // MutationObserver to handle Streamlit's DOM updates (especially the hidden input)
+    function observeDOM_1() {
+        console.log("Starting MutationObserver");
+        const observer = new MutationObserver((mutations) => {
+            // Check for changes to the hidden input
+            const callActiveInput = document.getElementById('call-active-state');
+            if (callActiveInput) {
+                for (let mutation of mutations) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'value' && mutation.target === callActiveInput) {
+                        console.log("call-active-state changed, re-checking");
+                        checkCallActiveAndStart();
+                        break; // Only need to react once per change
+                    }
+                    // Also check for childList changes if the input itself might be re-rendered
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        if (Array.from(mutation.addedNodes).some(node => node.id === 'call-active-state')) {
+                            console.log("call-active-state element re-added, re-checking");
+                            checkCallActiveAndStart();
+                            break;
+                        }
+                    }
+                }
+            }
+            // Also re-find textarea just in case Streamlit re-renders it (e.g., on rerun)
+            findTargetTextarea_1();
+        });
+        // Observe the body for subtree modifications to catch the hidden input and textarea changes
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    }
+
+    // Initial setup when the script loads
+    if (!window.speechRecognitionInitialized_1) {
+        console.log("Setting up speech recognition listener");
+        // Ensure DOM is ready before trying to find elements or observe
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(() => { // Small delay to ensure Streamlit elements are present
+                    findTargetTextarea_1();
+                    observeDOM_1();
+                    checkCallActiveAndStart();
+                }, 500); 
+            });
+        } else {
+            setTimeout(() => { // Small delay for immediate execution too
+                findTargetTextarea_1();
+                observeDOM_1();
+                checkCallActiveAndStart();
+            }, 500);
+        }
+        window.speechRecognitionInitialized_1 = true;
+    }
+</script>
