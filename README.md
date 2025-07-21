@@ -20,6 +20,21 @@ AI Call Center is a Streamlit-based web application that leverages **Google Gemi
 
 ---
 
+## 🛠️ Tech Stack
+
+| Technology         | Purpose/Role                                  |
+|--------------------|-----------------------------------------------|
+| Python             | Main backend language                         |
+| Streamlit          | Web app framework for dashboards              |
+| Google Gemini API  | AI/NLP model for generating responses         |
+| gTTS (Google TTS)  | Text-to-speech for AI voice output            |
+| Pandas             | Excel data handling and manipulation          |
+| openpyxl           | Reading/writing Excel files                   |
+| python-dotenv      | Environment variable management               |
+| HTML/CSS/JavaScript| Custom speech recognition UI components       |
+
+---
+
 ## 🗂️ Project Structure
 
 ```
